@@ -1,0 +1,4 @@
+.metadata
+*.o
+*.o.d
+

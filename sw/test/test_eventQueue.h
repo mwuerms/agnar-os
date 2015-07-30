@@ -17,7 +17,9 @@
 /* - typedefs --------------------------------------------------------------- */
 
 /* - public functions ------------------------------------------------------- */
-void test_eventQueue(void **state);
+void test_eventQueue_Init(void **state);
+void test_eventQueue_WriteFull(void **state);
+void test_eventQueue_ReadEmpty(void **state);
 
 #endif /* _TEST_EVENT_QUEUE_H_ */
 

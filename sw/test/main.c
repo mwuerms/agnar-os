@@ -25,7 +25,9 @@ int main(void)
     printf("unit tests for cooperative os, version: %s\n\n", cVERSION);
     const UnitTest tests[] = 
     {
-        unit_test(test_eventQueue),
+        unit_test(test_eventQueue_Init),
+        unit_test(test_eventQueue_WriteFull),
+        unit_test(test_eventQueue_ReadEmpty),
     };
     return run_tests(tests);
 }

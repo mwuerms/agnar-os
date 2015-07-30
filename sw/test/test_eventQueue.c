@@ -4,6 +4,7 @@
  */
 
 /* - includes --------------------------------------------------------------- */
+#include <stdio.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -15,145 +16,60 @@
 /* - typedefs --------------------------------------------------------------- */
 
 /* - public functions ------------------------------------------------------- */
-void test_eventQueue(void **state)
-{
-    assert_int_equal(3, 3);
-    assert_int_not_equal(3, 3);
+
+/**
+ * initialize event queue
+ */
+void test_eventQueue_Init(void **state) {
+    // test event
+    event_t ev = {.data = NULL, .pid = 1, .event = 1};
+
+    evQueue_Init();
+    assert_int_equal(0, evQueue_GetLength());
+    // should not work, queue empty
+    assert_int_equal(0, evQueue_Read(&ev));    
 }
-#if 0
 
-int8_t test1(uint8_t event, void *data) {
-	printf("call test1, event: %d, data: %p\n", event, data);
-	return(-1);
+/**
+ * write event queue until full
+ */
+void test_eventQueue_WriteFull(void **state) {
+    // test event
+    event_t ev = {.data = NULL, .pid = 1, .event = 1};
+    uint8_t i;
+
+    // fill queue completely, cEVENT_QUEUE_SIZE-1 elements
+    printf("eventQueue has %d elements\n", cEVENT_QUEUE_SIZE);
+    for(i = 1; i < (cEVENT_QUEUE_SIZE); i++) {
+        assert_int_equal(1, evQueue_Write(&ev));
+        assert_int_equal(i, evQueue_GetLength());
+    }
+    
+    // queue is full now
+    assert_int_equal(0, evQueue_Write(&ev));
+    assert_int_equal(cEVENT_QUEUE_SIZE-1, evQueue_GetLength());
+    
 }
 
-int main(void) {
+/**
+ * read event queue until empty
+ */
+void test_eventQueue_ReadEmpty(void **state) {
+    // test event
+    event_t ev = {.data = NULL, .pid = 1, .event = 1};
+    uint8_t i;
 
-	printf("== TEST evQueue ==\n");
-	event_t ev = {.data = NULL, .pid = 1, .event = 1};
-	int8_t ret;
-	evQueue_Init();
+    // event queue has been filled previously
+    assert_int_equal(cEVENT_QUEUE_SIZE-1, evQueue_GetLength());
 
-	printf("evQueue_Get() from empty event queue, should not work = return = 0\n");
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-
-
-	printf("evQueue_Push()\n");
-	ev.event = 1;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 2;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 3;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 4;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 5;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 6;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 7;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 8;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 9;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 10;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 11;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 12;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 13;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 14;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 15;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 16;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 17;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 18;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 19;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-	ev.event = 20;
-	ret = evQueue_Push(&ev);
-	printf("evQueue_Push: %d, ev.event: %d, length: %d\n", ret, ev.event, evQueue_GetLength());
-
-	printf("evQueue_Get()\n");
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-	ret = evQueue_Get(&ev);
-	printf("evQueue_Get: %d, ev.event: %d, ev.pid: %d, ev.data: %p, length: %d\n", ret, ev.event, ev.pid, ev.data, evQueue_GetLength());
-
-	return(1);
+    // read queue completely, cEVENT_QUEUE_SIZE-1 elements
+    printf("eventQueue has %d elements\n", cEVENT_QUEUE_SIZE);
+    for(i = cEVENT_QUEUE_SIZE-1; i > 0; i--) {
+        assert_int_equal(i, evQueue_GetLength());
+        assert_int_equal(1, evQueue_Read(&ev));
+    }
+    // queue is empty now
+    assert_int_equal(0, evQueue_GetLength());
+    assert_int_equal(0, evQueue_Read(&ev));
 }
-#endif 
 
