@@ -15,6 +15,7 @@
 
 /* - includes test units ---------------------------------------------------- */
 #include "test_eventQueue.h"
+#include "test_fifo.h"
 
 /* - public functions ------------------------------------------------------- */
 /**
@@ -25,9 +26,10 @@ int main(void)
     printf("unit tests for cooperative os, version: %s\n\n", cVERSION);
     const UnitTest tests[] = 
     {
+        unit_test(test_Fifo),
         unit_test(test_eventQueue_Init),
         unit_test(test_eventQueue_WriteFull),
-        unit_test(test_eventQueue_ReadEmpty),
+        unit_test(test_eventQueue_ReadEmpty),    
     };
     return run_tests(tests);
 }
