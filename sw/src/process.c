@@ -11,7 +11,7 @@
 /* - typedefs --------------------------------------------------------------- */
 
 /* - private variables ------------------------------------------------------ */
-static fifo_index_t evq_index;
+static fifo_index_t event_queue_index;
 static uint8_t event_queue[cNB_OF_EVENTS_IN_QUEUE];
 
 static process_t *process_list[cNB_OF_PROCESSES];	// pid = 0: unused, free; =1...N-1: pid set
@@ -35,7 +35,7 @@ static inline void evQueue_Init(void) {
  */
 static inline uint8_t evQueue_Write(event_t *ev) {
     // sanity checks
-	if(event == NULL)
+	if(ev == NULL)
 		return(0);
 
 	if(fifo_IncWriteIndex(&event_queue_index) == 0) {
@@ -43,16 +43,19 @@ static inline uint8_t evQueue_Write(event_t *ev) {
 		return(0);
 	}
 	
-	memcpy(ev, &event_queue(event_queue_index.write), sizeof(*ev));
+	memcpy(ev, &event_queue[event_queue_index.write], sizeof(*ev));
 	return(1);
 }
 
 /**
- *
+ * read an event from the event queue
+ * @param   event   pointer to event to read from event_queue
+ * @return  =1: OK, reading event successfull, event is valid
+ *          =0: Error, could not read, event_queue is empty
  */
 static inline uint8_t evQueue_Read(event_t *ev) {
     // sanity checks
-	if(event == NULL)
+	if(ev == NULL)
 		return(0);
 		
 	if(fifo_IncReadIndex(&event_queue_index) == 0) {
@@ -60,11 +63,9 @@ static inline uint8_t evQueue_Read(event_t *ev) {
 		return(0);
 	}
 	
-	memcpy(&event_queue(event_queue_index.read), ev, sizeof(*ev));
+	memcpy(&event_queue[event_queue_index.read], ev, sizeof(*ev));
 	return(1);
 }
-
-
 
 
 /**
@@ -76,22 +77,32 @@ static inline uint8_t evQueue_Read(event_t *ev) {
  *					=0: error, could not execute process
  */
 static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
-	int8_t ret;
-	
 	// sanity test, does pid exist?
-	if(process_list[pid].pid != pid) {
+	if(process_list[pid]->pid != pid) {
 		// error, pid is not set
 		return(0);
 	}
 	// sanity test, is pointer to process to execute correctly set?
-	if(process_list[pid].process_function == NULL) {
+	if(process_list[pid]->process == NULL) {
 		// error, pid is not set
 		return(0);
 	}
-
+    // check if process is not yet started
+    if(process_list[pid]->state == cPROCESS_STATE_NONE) {
+        // process is not active
+        return(0);
+    }
+    
 	// OK, execute process
-	ret = process_list[pid].process_function(event, data);
-	
+	process_list[pid]->state = cPROCESS_STATE_RUNNING;
+	if(process_list[pid]->process(event, data) == 0) {
+	    // do not run this process anymore
+		process_list[pid]->state = cPROCESS_STATE_NONE;
+	}
+	else {
+    	// process remains active
+		process_list[pid]->state = cPROCESS_STATE_ACTIVE;
+	}
 	return(1);
 }
 
@@ -109,13 +120,13 @@ int8_t process_Add(process_t *p) {
 		// error, no process
 		return(0);
 	}
-	if(p.process_function == NULL) {
+	if(p->process == NULL) {
 		// error, no process_function defined
 		return(0);
 	}
 	
 	// place process in process_list
-	if(process_count >= N) {
+	if(process_count >= cNB_OF_PROCESSES) {
 		// error, no more space for an additional process in the process_list
 		return(0);
 	}
@@ -123,8 +134,8 @@ int8_t process_Add(process_t *p) {
 	// add process to process_list
 	pid = process_count;
 	process_count++;
-	process_list[pid]->p;
-	process_list[pid]->p->pid = pid;
+    process_list[pid] = p;
+    process_list[pid]->state = cPROCESS_STATE_NONE;
 
     return(1);
 }
@@ -136,7 +147,25 @@ int8_t process_Add(process_t *p) {
  *					=0: error, could not start process
  */
 int8_t process_Start(uint8_t pid) {
-	// add start event to event list
+    // check if pid may be valid
+	if(pid >= process_count) {
+		// error, pid is invalid
+		return(0);
+	}
+    // check if process exists
+    if((process_list[pid]->process == NULL) ||
+       (process_list[pid]->pid != pid)) {
+        // error, process does not exist
+        return(0);
+    }
+    // check if process is not yet started
+    if(process_list[pid]->state != cPROCESS_STATE_NONE) {
+        // process does not exist
+        return(0);
+    }
+    
+	// start process
+	process_list[pid]->state = cPROCESS_STATE_ACTIVE;
 	return(process_SendEvent(pid, cEV_START, NULL));
 }
 
@@ -150,15 +179,32 @@ int8_t process_Start(uint8_t pid) {
  */
 int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data) {
 	event_t ev;
-	// sanity test
-	if(pid >= N) {
-		// error, pid does not exist
+	
+	// check if pid may be valid
+	if(pid >= process_count) {
+		// error, pid is invalid
 		return(0);
 	}
+    // check if process exists
+    if((process_list[pid]->process == NULL) ||
+       (process_list[pid]->pid != pid)) {
+        // error, process does not exist
+        return(0);
+    }
+    
 	ev.pid = pid;
 	ev.event = event;
 	ev.data = data;
 	return(evQueue_Write(&ev));
+}
+
+/**
+ * check if event queue is empty
+ * @return  =1: event queue is empty
+ *          =0: event queue is not empty
+ */
+int8_t process_IsEventQueueEmpty(void) {
+    return(fifo_IsEmpty(&event_queue_index));
 }
 
 /**
@@ -172,7 +218,7 @@ int8_t process_Run(void) {
 	
 	while(1) {
 		// get next event
-		ret = evQueue_Get(&ev);
+		ret = evQueue_Read(&ev);
 		if(ret == 1) {
 			// got a valid event, send it to the process
 			process_Exec(ev.pid, ev.event, ev.data);
@@ -184,9 +230,6 @@ int8_t process_Run(void) {
 	}
 	return(0);
 }
-
-static char[] idle_task_name = "idle task";
-static process_t idle_task = {.pid = 0, .process_function = idleTask_Process, idle_task_name};
 
 /**
  * the idle task
@@ -205,7 +248,7 @@ int8_t idleTask_Process(uint8_t event, void *data) {
 	// stay here as long there is no event available
 	while(1) {
 		// check if event_queue is empty
-		if(evQueue_GetLength() == 0) {
+		if(process_IsEventQueueEmpty() == 1) {
 			// find lowest power mode
 			// go to sleep
 		}
@@ -216,17 +259,22 @@ int8_t idleTask_Process(uint8_t event, void *data) {
 	return(0);
 }
 
+static char idle_task_name[] = "idle task";
+static process_t idle_task;
+
 /**
  * initialize the process module
  * idle task is set in this function
  * @param	idle_task	pointer to process context of the idle_task
  */
-int8_t process_Init(process_t *idle_task) {
+void process_Init(void) {
 	// vars
 	process_count = 0;
 	memset(process_list, 0, sizeof(process_list));
 	
 	evQueue_Init();
 	
-	process_AddStart(&idle_task);
+	idle_task.process = idleTask_Process;
+	process_Add(&idle_task);
 }
+
