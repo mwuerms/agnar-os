@@ -31,8 +31,8 @@ endif
 # use symbolic links to get files from ../src folder
 SRC=main.c\
 test_fifo.c\
-test_eventQueue.c\
-eventQueue.c
+test_process.c\
+process.c
 
 OBJ = $(SRC:.c=.o)
 

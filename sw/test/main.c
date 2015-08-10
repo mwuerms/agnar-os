@@ -14,8 +14,8 @@
 #include "version.h"
 
 /* - includes test units ---------------------------------------------------- */
-#include "test_eventQueue.h"
 #include "test_fifo.h"
+#include "test_process.h"
 
 /* - public functions ------------------------------------------------------- */
 /**
@@ -27,9 +27,7 @@ int main(void)
     const UnitTest tests[] = 
     {
         unit_test(test_Fifo),
-        unit_test(test_eventQueue_Init),
-        unit_test(test_eventQueue_WriteFull),
-        unit_test(test_eventQueue_ReadEmpty),    
+        unit_test(test_Process),
     };
     return run_tests(tests);
 }
