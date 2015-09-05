@@ -5,6 +5,7 @@
  */
 
 /* - includes --------------------------------------------------------------- */
+#include "project.h"
 #include "process.h"
 #include "fifo.h"
 
@@ -14,8 +15,10 @@
 static fifo_index_t event_queue_index;
 static uint8_t event_queue[cNB_OF_EVENTS_IN_QUEUE];
 
-static process_t *process_list[cNB_OF_PROCESSES];	// pid = 0: unused, free; =1...N-1: pid set
+static process_t *idle_process;
+static process_t *process_list[cNB_OF_PROCESSES];	// =NULL: unused, free
 static uint8_t process_count;
+static uint8_t pid_count; /// pid == 0 should not exist
 
 /* - private (static) functions --------------------------------------------- */
 
@@ -67,6 +70,34 @@ static inline uint8_t evQueue_Read(event_t *ev) {
 	return(1);
 }
 
+/**
+ * find the process in the list by given pid
+ * find only first occurence
+ * @param   pid of process to find
+ * @reutn   pointert to process_t   =NULL: could not find process with given pid
+ *                                  else: valid pointer
+ */
+static process_t *process_FindByPID(uint8_t pid) {
+    uint8_t n;
+    for(n = 0; n < cNB_OF_PROCESSES; n++) {
+        if(process_list[n] != NULL) {
+            if(process_list[n]->pid == pid) {
+                // found process with same pid
+                return(process_list[n]);
+            }
+        }
+    }
+    // no process in list found
+    return(NULL);
+}
+
+/**
+ * remove a process from process_list given by pid
+ * @param   pid of process to remove
+ * @return  status =1: successfully removed process from process_list
+ *                 =0: could not remove process from process_list
+ * /
+static int8_t process_RemoveFromProcessList(uint8_t pid);*/
 
 /**
  * execute a process given by its PID
@@ -77,33 +108,36 @@ static inline uint8_t evQueue_Read(event_t *ev) {
  *					=0: error, could not execute process
  */
 static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
-	// sanity test, does pid exist?
-	if(process_list[pid]->pid != pid) {
-		// error, pid is not set
-		return(0);
-	}
-	// sanity test, is pointer to process to execute correctly set?
-	if(process_list[pid]->process == NULL) {
-		// error, pid is not set
+    process_t *p;
+    // check if process exists
+    if((p = process_FindByPID(pid)) == NULL) {
+        // error, process does not exist
+        return(0);
+    }
+    
+   	// is function pointer correctly set?
+	if(p->process == NULL) {
+		// error, function pointer is not set
 		return(0);
 	}
     // check if process is not yet started
-    if(process_list[pid]->state == cPROCESS_STATE_NONE) {
+    if(p->state == cPROCESS_STATE_NONE) {
         // process is not active
         return(0);
     }
     
-    DEBUG_MESSAGE("execute process \"%s\" (pid: %d, event: %d, data: %p)", process_list[pid]->name, pid, event, data);
+    DEBUG_MESSAGE("execute process \"%s\" (pid: %d, event: %d, data: %p)\n", 
+        p->name, p->pid, event, data);
     
 	// OK, execute process
-	process_list[pid]->state = cPROCESS_STATE_RUNNING;
-	if(process_list[pid]->process(event, data) == 0) {
+	p->state = cPROCESS_STATE_RUNNING;
+	if(p->process(event, data) == 0) {
 	    // do not run this process anymore
-		process_list[pid]->state = cPROCESS_STATE_NONE;
+		p->state = cPROCESS_STATE_NONE;
 	}
 	else {
     	// process remains active
-		process_list[pid]->state = cPROCESS_STATE_ACTIVE;
+		p->state = cPROCESS_STATE_ACTIVE;
 	}
 	return(1);
 }
@@ -115,7 +149,9 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
  */
 void process_Init(void) {
 	// vars
-	process_count = 1;
+	process_count = 0;
+	pid_cound = 0;  // 1st time: ++
+	idle_process = NULL;
 	memset(process_list, 0, sizeof(process_list));
 	
 	evQueue_Init();
@@ -124,11 +160,12 @@ void process_Init(void) {
 /**
  * add a new process
  * @param	p	pointer to process context
- * @return	status 	=1: OK, could add process to process_list and start it
+ * @return	status 	=1: OK, could add process to process_list
  *					=0: error, could not add process to process_list
  */
 int8_t process_Add(process_t *p) {
-	uint8_t pid;
+    uint8_t n;
+    
 	// sanity tests
 	if(p == NULL) {
 		// error, no process
@@ -144,60 +181,92 @@ int8_t process_Add(process_t *p) {
 		// error, no more space for an additional process in the process_list
 		return(0);
 	}
-	
-	// add process to process_list
-	pid = process_count;
-	process_count++;
-	p->pid = pid;
-    process_list[pid] = p;
-    process_list[pid]->state = cPROCESS_STATE_NONE;
-
+    for(n = 0; n < cNB_OF_PROCESSES; n++) {
+        if(process_list[n] == NULL) {
+            // found empty space in process_list
+            break;
+        }
+    }
+    if(n >= cNB_OF_PROCESSES) {
+        // error, could not add process to list, no more space available
+	    return(0);
+    }
+    
+    // found empty space, add process to process_list
+    process_list[n] = p;
+    process_count++;
+    if(pid_count == 0) {
+        pid_count = 1;
+    }
+    else {
+        pid_count++;
+    }
+    // success, added process to process_list
+    p->pid = pid_count;
+    p->state = cPROCESS_STATE_NONE;
+        
     DEBUG_MESSAGE("process_Add: %s, pid: %d\n",
-    		process_list[pid]->name,
-			process_list[pid]->pid);
+    		p->name,
+			p->pid);
     return(1);
 }
 
+
 /**
- * start a process
+ * removes an existing  process
+ * @param	pid		process identifier
+ * @return	status 	=1: OK, could remove process from process_list
+ *					=0: error, could not remove process to process_list
+ */
+int8_t process_Remove(process_t *p) {
+    return(0);
+}
+
+/**
+ * start an existing process
  * @param	pid		process identifier
  * @return	status 	=1: OK, could start process
  *					=0: error, could not start process
  */
 int8_t process_Start(uint8_t pid) {
-    // check if pid may be valid
-	if(pid >= process_count) {
-		// error, pid is invalid
-		return(0);
-	}
+    process_t *p;
     // check if process exists
-    if((process_list[pid]->process == NULL) ||
-       (process_list[pid]->pid != pid)) {
+    if((p = process_FindByPID(pid)) == NULL) {
         // error, process does not exist
         return(0);
     }
-    // check if process is not yet started
-    if(process_list[pid]->state != cPROCESS_STATE_NONE) {
-        // process does not exist
+    // check if process is already started
+    if(p->state != cPROCESS_STATE_NONE) {
+        // error, process is already started
         return(0);
     }
     
 	// start process
-	process_list[pid]->state = cPROCESS_STATE_ACTIVE;
+	p->state = cPROCESS_STATE_ACTIVE;
 	DEBUG_MESSAGE("process_Start: %s, pid: %d, state: %d\n",
-			process_list[pid]->name,
-			process_list[pid]->pid,
-			process_list[pid]->state);
+			p->name,
+			p->pid,
+			p->state);
 	return(process_SendEvent(pid, cEV_START, NULL));
 }
 
 /**
- * add the idle process and start this idle process
+ * stop an existing process
+ * @param	pid		process identifier
+ * @return	status 	=1: OK, could stop process
+ *					=0: error, could not stop process
+ */
+int8_t process_Stop(uint8_t pid) {
+    return(0);
+}
+
+/**
+ * add the idle process, this process does not need to be started
  * @param	p	pointer to process context
- * @return	status 	=1: OK, could add process to process_list and start it
+ * @return	status 	=1: OK, could add process to process_list
  *					=0: error, could not add process to process_list
  */
-int8_t process_AddStartIdle(process_t *p) {
+int8_t process_AddIdle(process_t *p) {
 	// sanity tests
 	if(p == NULL) {
 		// error, no process
@@ -208,22 +277,15 @@ int8_t process_AddStartIdle(process_t *p) {
 		return(0);
 	}
 	
-	// place process in process_list
-	/*if(process_count >= cNB_OF_PROCESSES) {
-		// error, no more space for an additional process in the process_list
-		return(0);
-	}*/
-	
-	// add process to process_list
+	// success, add process to idle_process
+    idle_process = p;
 	p->pid = cPROCESS_PID_IDLE;
-    process_list[cPROCESS_PID_IDLE] = p;
-    process_list[cPROCESS_PID_IDLE]->state = cPROCESS_STATE_NONE;
-    DEBUG_MESSAGE("process_AddStartIdle: %s, pid: %d, state: %d\n",
-    			process_list[cPROCESS_PID_IDLE]->name,
-				process_list[cPROCESS_PID_IDLE]->pid,
-    			process_list[cPROCESS_PID_IDLE]->state);
+	p->state = cPROCESS_STATE_NONE; // does not matter for idle_process
+    DEBUG_MESSAGE("process_AddStartIdle: %s, pid: %d\n",
+    			p->name,
+				p->pid);
 
-    return(process_Start(cPROCESS_PID_IDLE));
+    return(1);
 }
 
 /**
@@ -236,23 +298,16 @@ int8_t process_AddStartIdle(process_t *p) {
  */
 int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data) {
 	event_t ev;
+	int8_t ret;
+	uint8_t sr;
 	
-	// check if pid may be valid
-	if(pid >= process_count) {
-		// error, pid is invalid
-		return(0);
-	}
-    // check if process exists
-    if((process_list[pid]->process == NULL) ||
-       (process_list[pid]->pid != pid)) {
-        // error, process does not exist
-        return(0);
-    }
-    
 	ev.pid = pid;
 	ev.event = event;
 	ev.data = data;
-	return(evQueue_Write(&ev));
+	lock_interrupt(sr);
+	ret = evQueue_Write(&ev);
+	release_interrupt(sr);
+	return(ret);
 }
 
 /**
@@ -282,7 +337,11 @@ int8_t process_Run(void) {
 		}
 		else {
 			// event_queue is empty, execute the idle task
-			process_Exec(cPROCESS_PID_IDLE, 0, NULL);
+			if(idle_process != NULL) {
+			    DEBUG_MESSAGE("execute idle process \"%s\" (pid: %d, event: %d, data: %p)\n", 
+                    idle_process->name, idle_process->pid, 0, NULL);
+    			idle_process(cPROCESS_PID_IDLE, 0, NULL);
+			}
 		}
 	}
 	return(0);

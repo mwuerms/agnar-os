@@ -42,8 +42,10 @@ typedef struct {
 /* - prototypes ------------------------------------------------------------- */
 void process_Init(void);
 int8_t process_Add(process_t *p);
+int8_t process_Remove(process_t *p);
 int8_t process_Start(uint8_t pid);
-int8_t process_AddStartIdle(process_t *p);
+int8_t process_Stop(uint8_t pid);
+int8_t process_AddIdle(process_t *p);
 int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data);
 int8_t process_IsEventQueueEmpty(void);
 int8_t process_Run(void);
