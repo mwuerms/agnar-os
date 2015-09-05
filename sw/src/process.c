@@ -93,6 +93,8 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
         return(0);
     }
     
+    DEBUG_MESSAGE("execute process \"%s\" (pid: %d, event: %d, data: %p)", process_list[pid]->name, pid, event, data);
+    
 	// OK, execute process
 	process_list[pid]->state = cPROCESS_STATE_RUNNING;
 	if(process_list[pid]->process(event, data) == 0) {
@@ -107,8 +109,20 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
 }
 
 /* - public functions ------------------------------------------------------- */
+
 /**
- * add a new process and send the start event to this process
+ * initialize the process module
+ */
+void process_Init(void) {
+	// vars
+	process_count = 1;
+	memset(process_list, 0, sizeof(process_list));
+	
+	evQueue_Init();
+}
+
+/**
+ * add a new process
  * @param	p	pointer to process context
  * @return	status 	=1: OK, could add process to process_list and start it
  *					=0: error, could not add process to process_list
@@ -134,9 +148,13 @@ int8_t process_Add(process_t *p) {
 	// add process to process_list
 	pid = process_count;
 	process_count++;
+	p->pid = pid;
     process_list[pid] = p;
     process_list[pid]->state = cPROCESS_STATE_NONE;
 
+    DEBUG_MESSAGE("process_Add: %s, pid: %d\n",
+    		process_list[pid]->name,
+			process_list[pid]->pid);
     return(1);
 }
 
@@ -166,7 +184,46 @@ int8_t process_Start(uint8_t pid) {
     
 	// start process
 	process_list[pid]->state = cPROCESS_STATE_ACTIVE;
+	DEBUG_MESSAGE("process_Start: %s, pid: %d, state: %d\n",
+			process_list[pid]->name,
+			process_list[pid]->pid,
+			process_list[pid]->state);
 	return(process_SendEvent(pid, cEV_START, NULL));
+}
+
+/**
+ * add the idle process and start this idle process
+ * @param	p	pointer to process context
+ * @return	status 	=1: OK, could add process to process_list and start it
+ *					=0: error, could not add process to process_list
+ */
+int8_t process_AddStartIdle(process_t *p) {
+	// sanity tests
+	if(p == NULL) {
+		// error, no process
+		return(0);
+	}
+	if(p->process == NULL) {
+		// error, no process_function defined
+		return(0);
+	}
+	
+	// place process in process_list
+	/*if(process_count >= cNB_OF_PROCESSES) {
+		// error, no more space for an additional process in the process_list
+		return(0);
+	}*/
+	
+	// add process to process_list
+	p->pid = cPROCESS_PID_IDLE;
+    process_list[cPROCESS_PID_IDLE] = p;
+    process_list[cPROCESS_PID_IDLE]->state = cPROCESS_STATE_NONE;
+    DEBUG_MESSAGE("process_AddStartIdle: %s, pid: %d, state: %d\n",
+    			process_list[cPROCESS_PID_IDLE]->name,
+				process_list[cPROCESS_PID_IDLE]->pid,
+    			process_list[cPROCESS_PID_IDLE]->state);
+
+    return(process_Start(cPROCESS_PID_IDLE));
 }
 
 /**
@@ -225,56 +282,9 @@ int8_t process_Run(void) {
 		}
 		else {
 			// event_queue is empty, execute the idle task
-			process_Exec(0, 0, NULL);
+			process_Exec(cPROCESS_PID_IDLE, 0, NULL);
 		}
 	}
 	return(0);
-}
-
-/**
- * the idle task
- * stay here as long there is no event in the event_queue available
- * @param	event	event for the process to execute
- * @param	data	additional data to process (if unused = NULL)
- * @return	status 	=1: OK, could execute process
- *					=0: error, could not execute process
- */
-int8_t idleTask_Process(uint8_t event, void *data) {
-	// check for start event
-	if(event == cEV_START) {
-		// do ? nothing to initialize
-	}
-
-	// stay here as long there is no event available
-	while(1) {
-		// check if event_queue is empty
-		if(process_IsEventQueueEmpty() == 1) {
-			// find lowest power mode
-			// go to sleep
-		}
-		else {
-			break;
-		}
-	}
-	return(0);
-}
-
-static char idle_task_name[] = "idle task";
-static process_t idle_task;
-
-/**
- * initialize the process module
- * idle task is set in this function
- * @param	idle_task	pointer to process context of the idle_task
- */
-void process_Init(void) {
-	// vars
-	process_count = 0;
-	memset(process_list, 0, sizeof(process_list));
-	
-	evQueue_Init();
-	
-	idle_task.process = idleTask_Process;
-	process_Add(&idle_task);
 }
 
