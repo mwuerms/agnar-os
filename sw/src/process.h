@@ -34,10 +34,11 @@ typedef struct {
   uint8_t pid;
   uint8_t event;
 } event_t;
+// events from 0 ... 127 are for user purpose
 // predefined events
-#define cEV_START   1
-#define cEV_STOP    2
-#define cEV_POLL    3
+#define cEV_START   128
+#define cEV_STOP    129
+#define cEV_POLL    130
 
 /* - prototypes ------------------------------------------------------------- */
 void process_Init(void);

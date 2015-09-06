@@ -13,7 +13,7 @@
 
 /* - private variables ------------------------------------------------------ */
 static fifo_index_t event_queue_index;
-static uint8_t event_queue[cNB_OF_EVENTS_IN_QUEUE];
+static event_t event_queue[cNB_OF_EVENTS_IN_QUEUE];
 
 static process_t *idle_process;
 static process_t *process_list[cNB_OF_PROCESSES];	// =NULL: unused, free
@@ -37,16 +37,30 @@ static inline void evQueue_Init(void) {
  *          =0: Error, could not write, queue is full
  */
 static inline uint8_t evQueue_Write(event_t *ev) {
-    // sanity checks
-	if(ev == NULL)
+	DEBUG_MESSAGE("evQueue_Write: (wr: %d, rd:%d, len: %d, size: %d)",
+				event_queue_index.write,
+				event_queue_index.read,
+				event_queue_index.length,
+				event_queue_index.size);
+	// sanity checks
+	if(ev == NULL) {
+		DEBUG_MESSAGE(" ev == NULL\n");
 		return(0);
+	}
 
 	if(fifo_IncWriteIndex(&event_queue_index) == 0) {
+		DEBUG_MESSAGE(" event queue is full\n");
 		// event queue is full
 		return(0);
 	}
 	
-	memcpy(ev, &event_queue[event_queue_index.write], sizeof(*ev));
+	memcpy(&event_queue[event_queue_index.write], ev, sizeof(*ev));
+	DEBUG_MESSAGE(" event: pid: %d, event: %d, data: %p (wr: %d, rd:%d, len: %d, size: %d)\n",
+				ev->pid, ev->event, ev->data,
+				event_queue_index.write,
+				event_queue_index.read,
+				event_queue_index.length,
+				event_queue_index.size);
 	return(1);
 }
 
@@ -57,16 +71,30 @@ static inline uint8_t evQueue_Write(event_t *ev) {
  *          =0: Error, could not read, event_queue is empty
  */
 static inline uint8_t evQueue_Read(event_t *ev) {
+	DEBUG_MESSAGE("evQueue_Read:  (wr: %d, rd:%d, len: %d, size: %d)",
+			event_queue_index.write,
+			event_queue_index.read,
+			event_queue_index.length,
+			event_queue_index.size);
     // sanity checks
-	if(ev == NULL)
+	if(ev == NULL) {
+		DEBUG_MESSAGE(" ev == NULL\n");
 		return(0);
+	}
 		
 	if(fifo_IncReadIndex(&event_queue_index) == 0) {
-		// event queue is full
+		DEBUG_MESSAGE(" event queue is empty\n");
+		// event queue is empty
 		return(0);
 	}
 	
-	memcpy(&event_queue[event_queue_index.read], ev, sizeof(*ev));
+	memcpy(ev, &event_queue[event_queue_index.read], sizeof(*ev));
+	DEBUG_MESSAGE(" event: pid: %d, event: %d, data: %p (wr: %d, rd:%d, len: %d, size: %d)\n",
+		ev->pid, ev->event, ev->data,
+		event_queue_index.write,
+		event_queue_index.read,
+		event_queue_index.length,
+		event_queue_index.size);
 	return(1);
 }
 
@@ -150,7 +178,7 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
 void process_Init(void) {
 	// vars
 	process_count = 0;
-	pid_cound = 0;  // 1st time: ++
+	pid_count = 0;  // 1st time: ++
 	idle_process = NULL;
 	memset(process_list, 0, sizeof(process_list));
 	
@@ -323,6 +351,7 @@ int8_t process_IsEventQueueEmpty(void) {
  * run the process scheduler
  * note: this function should never return (endless loop)
  * @return	=0: error
+ * 			=-1: exited, because it was a TEST_RUN
  */
 int8_t process_Run(void) {
 	static event_t ev;
@@ -340,7 +369,12 @@ int8_t process_Run(void) {
 			if(idle_process != NULL) {
 			    DEBUG_MESSAGE("execute idle process \"%s\" (pid: %d, event: %d, data: %p)\n", 
                     idle_process->name, idle_process->pid, 0, NULL);
-    			idle_process(cPROCESS_PID_IDLE, 0, NULL);
+    			ret = idle_process->process(0, NULL);
+#ifdef TEST_RUN
+    			if(ret == 0) {
+    				return(-1);
+    			}
+#endif
 			}
 		}
 	}

@@ -10,6 +10,7 @@ VERSION_FILE = version.h
 CC = gcc
 CFLAGS  = -c -g -Wall -rdynamic
 CFLAGS += -MD -MP -MT $(*F).o -MF $(DEP_DIR)/$(@F).d
+CFLAGS += -DTEST_RUN
 CFLAGS += -DDEBUG
 #CFLAGS += $(shell pkg-config --cflags glib-2.0)
 # preprocessor output

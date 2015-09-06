@@ -14,9 +14,9 @@
 
 /* - define ----------------------------------------------------------------- */
 // save status register + disable global interrupt
-#define disable_interrupt(x)
+#define lock_interrupt(x)
 // restore status register again
-#define enable_interrupt(x)
+#define release_interrupt(x)
 /*
                             do { \
                             x = SR; \
