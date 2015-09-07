@@ -53,7 +53,7 @@ static inline uint8_t evQueue_Write(event_t *ev) {
 		// event queue is full
 		return(0);
 	}
-	
+
 	memcpy(&event_queue[event_queue_index.write], ev, sizeof(*ev));
 	DEBUG_MESSAGE(" event: pid: %d, event: %d, data: %p (wr: %d, rd:%d, len: %d, size: %d)\n",
 				ev->pid, ev->event, ev->data,
@@ -81,13 +81,13 @@ static inline uint8_t evQueue_Read(event_t *ev) {
 		DEBUG_MESSAGE(" ev == NULL\n");
 		return(0);
 	}
-		
+
 	if(fifo_IncReadIndex(&event_queue_index) == 0) {
 		DEBUG_MESSAGE(" event queue is empty\n");
 		// event queue is empty
 		return(0);
 	}
-	
+
 	memcpy(ev, &event_queue[event_queue_index.read], sizeof(*ev));
 	DEBUG_MESSAGE(" event: pid: %d, event: %d, data: %p (wr: %d, rd:%d, len: %d, size: %d)\n",
 		ev->pid, ev->event, ev->data,
@@ -142,7 +142,7 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
         // error, process does not exist
         return(0);
     }
-    
+
    	// is function pointer correctly set?
 	if(p->process == NULL) {
 		// error, function pointer is not set
@@ -153,10 +153,10 @@ static int8_t process_Exec(uint8_t pid, uint8_t event, void *data) {
         // process is not active
         return(0);
     }
-    
-    DEBUG_MESSAGE("execute process \"%s\" (pid: %d, event: %d, data: %p)\n", 
+
+    DEBUG_MESSAGE("execute process \"%s\" (pid: %d, event: %d, data: %p)\n",
         p->name, p->pid, event, data);
-    
+
 	// OK, execute process
 	p->state = cPROCESS_STATE_RUNNING;
 	if(p->process(event, data) == 0) {
@@ -181,7 +181,7 @@ void process_Init(void) {
 	pid_count = 0;  // 1st time: ++
 	idle_process = NULL;
 	memset(process_list, 0, sizeof(process_list));
-	
+
 	evQueue_Init();
 }
 
@@ -193,7 +193,7 @@ void process_Init(void) {
  */
 int8_t process_Add(process_t *p) {
     uint8_t n;
-    
+
 	// sanity tests
 	if(p == NULL) {
 		// error, no process
@@ -203,7 +203,7 @@ int8_t process_Add(process_t *p) {
 		// error, no process_function defined
 		return(0);
 	}
-	
+
 	// place process in process_list
 	if(process_count >= cNB_OF_PROCESSES) {
 		// error, no more space for an additional process in the process_list
@@ -219,7 +219,7 @@ int8_t process_Add(process_t *p) {
         // error, could not add process to list, no more space available
 	    return(0);
     }
-    
+
     // found empty space, add process to process_list
     process_list[n] = p;
     process_count++;
@@ -232,7 +232,7 @@ int8_t process_Add(process_t *p) {
     // success, added process to process_list
     p->pid = pid_count;
     p->state = cPROCESS_STATE_NONE;
-        
+
     DEBUG_MESSAGE("process_Add: %s, pid: %d\n",
     		p->name,
 			p->pid);
@@ -268,7 +268,7 @@ int8_t process_Start(uint8_t pid) {
         // error, process is already started
         return(0);
     }
-    
+
 	// start process
 	p->state = cPROCESS_STATE_ACTIVE;
 	DEBUG_MESSAGE("process_Start: %s, pid: %d, state: %d\n",
@@ -304,7 +304,7 @@ int8_t process_AddIdle(process_t *p) {
 		// error, no process_function defined
 		return(0);
 	}
-	
+
 	// success, add process to idle_process
     idle_process = p;
 	p->pid = cPROCESS_PID_IDLE;
@@ -328,7 +328,7 @@ int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data) {
 	event_t ev;
 	int8_t ret;
 	uint8_t sr;
-	
+
 	ev.pid = pid;
 	ev.event = event;
 	ev.data = data;
@@ -356,7 +356,7 @@ int8_t process_IsEventQueueEmpty(void) {
 int8_t process_Run(void) {
 	static event_t ev;
 	static int8_t ret;
-	
+
 	while(1) {
 		// get next event
 		ret = evQueue_Read(&ev);
@@ -367,17 +367,14 @@ int8_t process_Run(void) {
 		else {
 			// event_queue is empty, execute the idle task
 			if(idle_process != NULL) {
-			    DEBUG_MESSAGE("execute idle process \"%s\" (pid: %d, event: %d, data: %p)\n", 
-                    idle_process->name, idle_process->pid, 0, NULL);
-    			ret = idle_process->process(0, NULL);
-#ifdef TEST_RUN
-    			if(ret == 0) {
-    				return(-1);
-    			}
-#endif
+				ret = idle_process->process(0, NULL);
 			}
+#ifdef TEST_RUN
+			if(ret == 0) {
+				return(-1);
+			}
+#endif
 		}
 	}
 	return(0);
 }
-

@@ -4,6 +4,9 @@
  *
  */
 
+#ifndef _PROCESS_H_
+#define _PROCESS_H_
+
 /* - includes --------------------------------------------------------------- */
 #include <stdint.h>
 #include "debug.h"
@@ -51,4 +54,4 @@ int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data);
 int8_t process_IsEventQueueEmpty(void);
 int8_t process_Run(void);
 
-
+#endif /* _PROCESS_H_ */

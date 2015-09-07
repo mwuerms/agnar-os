@@ -22,7 +22,7 @@ LDFLAGS  = -lcmocka
 # Versionfile
 VERSION_STRING_NAME = cVERSION
 STORED_VERSION_STRING = $(subst ",,$(shell [ ! -r $(VERSION_FILE) ] || \
-                                                read ignore ignore v <$(VERSION_FILE) && echo $$v))                                                              
+                                                read ignore ignore v <$(VERSION_FILE) && echo $$v))
 VERSION_STRING := $(shell git describe --dirty --always || echo $(VERSION))
 ifneq ($(STORED_VERSION_STRING),$(VERSION_STRING))
 $(info updating $(VERSION_FILE) to $(VERSION_STRING))
@@ -35,14 +35,15 @@ SRC=main.c\
 test_fifo.c\
 fifo.c\
 test_process.c\
-process.c
+process.c\
+evtimer.c
 
 OBJ = $(SRC:.c=.o)
 
 all: $(OBJ) $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) $(LDFLAGS) -o $(TARGET) 
+	$(CC) $(OBJ) $(LDFLAGS) -o $(TARGET)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $<

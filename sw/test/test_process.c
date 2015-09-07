@@ -23,51 +23,20 @@ static char test1_name[] = "_test1_";
 
 static int8_t idle_Process(uint8_t event, void *data) {
 	static uint8_t count = 0;
+	if(event == cEV_START) {
+		printf("idle_Process: cEV_START\n");
+		count = 0;
+	}
 	printf("run idle process, count: %d\n", count);
 	process_SendEvent(ptest1.pid, count, &count);
 	process_SendEvent(ptest1.pid, count, &count);
 	process_SendEvent(ptest1.pid, count, &count);
-	/*
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
 
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	*/
-/*
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-	process_SendEvent(ptest1.pid, count, &count);
-*/
 	if(count < 10) {
 		count++;
 		return(1);
 	}
-	printf("stop idle process\n");
+	printf("!!! stop idle process !!!\n\n\n\n");
 	return(0);
 }
 
@@ -109,5 +78,8 @@ void test_Process(void **state) {
 	assert_int_equal(1, process_Start(ptest1.pid));
 
 	assert_int_equal(-1, process_Run());
-}
 
+	idle_Process(cEV_START, NULL);
+	assert_int_equal(1, process_Start(ptest1.pid));
+	assert_int_equal(-1, process_Run());
+}
