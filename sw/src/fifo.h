@@ -25,5 +25,6 @@ int8_t fifo_IsFull(fifo_index_t *fi);
 int8_t fifo_IsEmpty(fifo_index_t *fi);
 int8_t fifo_IncWriteIndex(fifo_index_t *fi);
 int8_t fifo_IncReadIndex(fifo_index_t *fi);
+uint8_t fifo_IncUint8(uint8_t value, uint8_t max);
 
 #endif /* _FIFO_H_ */

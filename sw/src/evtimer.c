@@ -12,13 +12,12 @@
 #include "evtimer.h"
 #include "fifo.h"
 
-/* - defsines --------------------------------------------------------------- */
+/* - defines ---------------------------------------------------------------- */
 #define cEVTIMER_NB_EVENTS  16
 
 /* - typedefs --------------------------------------------------------------- */
 typedef struct {
-    uint16_t timeout;   /// =0: unused
-    uint16_t compare:
+    uint16_t compare;
     event_t  ev;
 } evtimer_event_t;
 
@@ -87,22 +86,63 @@ int8_t evtimer_Stop(void) {
  *					=0: error, could not add event
  */
 int8_t evtimer_AddSingleEvent(uint16_t timeout, uint8_t pid, uint8_t event, void *data) {
-    uint16_t now = 0;
+    uint16_t sr, duration, now = 0;
+    uint8_t write_pos, write_pos_1, move_elements, found;
+    fifo_index_t fifo_save;
+
+    // sanity check
+    if(timeout == 0) {
+        // invalid timeout
+        return(0);
+    }
+
     // get next free element
-    if(fifo_IncWriteIndex(&event_fifo)) {
+    if(fifo_IncWriteIndex(&event_fifo) == 0) {
         // cannot get next element: fifo is full
         return(0);
     }
 
-    // sort event into list according to its compare value
-    
     // copy event definition
     //now = read timer register
-    event_list[event_fifo.write].timeout = timeout;
-    event_list[event_fifo.write].ev.pid = pid;
-    event_list[event_fifo.write].ev.event = event;
-    event_list[event_fifo.write].ev.data = data;
-    event_list[event_fifo.write].compare = now + timeout;
+
+    // sort event into list according to its duration value, smallest duration first
+    // duration = compare - now
+    lock_interrupts(sr);
+    memcpy(&fifo_save, &event_fifo, sizeof(event_fifo));	// save event_fifo to restore at the end
+
+    // go from .read to .write
+    write_pos = 0;
+    found = 0;
+    while(fifo_IncReadIndex(&event_fifo) == 1) {
+    	duration = event_list[event_fifo.read].compare - now;
+    	if(timeout < duration) {
+    		// found position where the new duration is < than in the list
+			write_pos = event_fifo.read;
+			found = 1;
+			break;
+		}
+    }
+
+    if(found == 1) {
+    	// found position, move all elements 1 position from write_pos to .write
+    	write_pos_1 = fifo_IncUint8(write_pos, event_fifo.size-1);
+    	move_elements = 0;
+    	if(write_pos_1 > event_fifo.write)
+    	memcpy(&event_list[write_pos_1], &event_list[write_pos], sizeof(evtimer_event_t)*move_elements);
+		// set new event again to write_pos
+		event_list[write_pos].ev.pid = pid;
+		event_list[write_pos].ev.event = event;
+		event_list[write_pos].ev.data = data;
+		event_list[write_pos].compare = now + timeout;
+    }
+    else {
+        event_list[event_fifo.write].ev.pid = pid;
+        event_list[event_fifo.write].ev.event = event;
+        event_list[event_fifo.write].ev.data = data;
+        event_list[event_fifo.write].compare = now + timeout;
+    }
+    memcpy(&event_fifo, &fifo_save, sizeof(event_fifo));	// restore fifo
+    restore_interrupt(sr);
 
     return(1);
 }
