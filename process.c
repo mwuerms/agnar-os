@@ -334,7 +334,7 @@ int8_t process_SendEvent(uint8_t pid, uint8_t event, void *data) {
 	ev.data = data;
 	lock_interrupt(sr);
 	ret = evQueue_Write(&ev);
-	release_interrupt(sr);
+	restore_interrupt(sr);
 	return(ret);
 }
 
